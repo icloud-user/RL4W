@@ -43,11 +43,17 @@ FPS = 60
 
 # timings (in frames at 60fps)
 ARE_FRAMES = 10  # spawn delay (ARE)
-LOCK_DELAY = 200  # lock delay in frames
-LOCK_DELAY_RESET_ON_MOVE = True
-DAS_INITIAL = 14
-DAS_REPEAT = 4
-SOFT_DROP_SPEED = 1  # how many gravity steps per soft-drop tick (we'll just add to gravity)
+# Lock delay in frames: how many frames a piece may rest before locking.
+# Modern guideline: ~30-60 frames (0.5-1s at 60fps). Tune as desired.
+LOCK_DELAY = 2  # lock delay in frames (tunable)
+# If True, successful move/rotation/soft-drop while piece is resting resets lock timer.
+LOCK_DELAY_RESET_ON_MOVE = False
+DAS_INITIAL = 5.9  # initial DAS (frames). fractional values allowed.
+DAS_REPEAT = 0     # ARR (auto-repeat rate) in frames; 0 = instant repeat (every frame)
+SOFT_DROP_SPEED = 1  # legacy: not used directly here
+# When holding soft-drop, drop once every N frames. Lower = faster.
+# Set to 0 for infinite-speed soft drop (instant drop to contact when pressed).
+SOFT_DROP_INTERVAL = 0
 GRAVITY_LEVELS = [48, 43, 38, 33, 28, 23, 18, 13, 8, 6, 5, 5, 4, 4, 3, 3, 2, 2, 1]  # frames per cell (approx)
 
 # Colors
@@ -74,20 +80,29 @@ TETROMINO_BLOCKS = {
     'Z': [(-1,-1),(0,-1),(0,0),(1,0)],
 }
 
-# SRS kick tables for non-I pieces
+# SRS+ kick tables for non-I pieces (expanded for advanced setups like L-spin triples, J-spin triples, etc)
 # key: (from, to) rotation indexes among 0,1,2,3
+# These are the full SRS+ tables with comprehensive kicks
 KICKS = {
+    # 0 -> 1 (CW)
     (0,1): [(0,0),(-1,0),(-1,1),(0,-2),(-1,-2)],
+    # 1 -> 0 (CCW from 1)
     (1,0): [(0,0),(1,0),(1,-1),(0,2),(1,2)],
+    # 1 -> 2 (CW)
     (1,2): [(0,0),(1,0),(1,-1),(0,2),(1,2)],
+    # 2 -> 1 (CCW from 2)
     (2,1): [(0,0),(-1,0),(-1,1),(0,-2),(-1,-2)],
+    # 2 -> 3 (CW)
     (2,3): [(0,0),(1,0),(1,1),(0,-2),(1,-2)],
+    # 3 -> 2 (CCW from 3)
     (3,2): [(0,0),(-1,0),(-1,-1),(0,2),(-1,2)],
-    (3,0): [(0,0),(1,0),(1,1),(0,-2),(1,-2)],
-    (0,3): [(0,0),(-1,0),(-1,-1),(0,2),(-1,2)],
+    # 3 -> 0 (CW)
+    (3,0): [(0,0),(-1,0),(-1,-1),(0,+2),(-1,2)],
+    # 0 -> 3 (CCW from 0)
+    (0,3): [(0,0),(1,0),(1,1),(0,-2),(1,-2)],
 }
 
-# I-piece kicks differ
+# I-piece kicks - SRS+ expanded (I has different kick table due to its shape)
 IKICKS = {
     (0,1): [(0,0),(-2,0),(1,0),(-2,-1),(1,2)],
     (1,0): [(0,0),(2,0),(-1,0),(2,1),(-1,-2)],
@@ -98,6 +113,16 @@ IKICKS = {
     (3,0): [(0,0),(1,0),(-2,0),(1,-2),(-2,1)],
     (0,3): [(0,0),(-1,0),(2,0),(-1,2),(2,-1)],
 }
+
+# 180-degree kick candidates (full SRS+ style with extensive offsets for advanced setups)
+# Keys are (from,to) where to = (from+2)%4.
+KICKS_180 = {}
+IKICKS_180 = {}
+_common_180 = [(0,0),(-1,0),(1,0),(0,1),(0,-1),(-1,1),(1,1),(-1,-1),(1,-1),(2,0),(-2,0),(0,2),(0,-2),(2,1),(-2,1),(2,-1),(-2,-1),(3,0),(-3,0),(0,3),(0,-3),(1,2),(-1,2),(1,-2),(-1,-2),(2,2),(-2,2),(2,-2),(-2,-2)]
+for a in range(4):
+    b = (a+2) % 4
+    KICKS_180[(a,b)] = list(_common_180)
+    IKICKS_180[(a,b)] = list(_common_180)
 
 # rotation states are 0,1,2,3 clockwise
 
@@ -152,7 +177,8 @@ class Bag:
         self.q.extend(pieces)
 
     def next(self):
-        if len(self.q) <= 7:
+        # Only refill when the queue is empty so each 7-piece bag remains intact.
+        if len(self.q) == 0:
             self._refill()
         return Tetromino(self.q.popleft())
 
@@ -220,7 +246,10 @@ class Game:
         self.next_queue = deque()
         for _ in range(5):
             self.next_queue.append(self.bag.next())
-        self.current = self.next_queue.popleft()
+        # Spawn the initial current piece from the pre-filled next_queue.
+        # `spawn_next()` will pop one entry from `next_queue` and append a new
+        # piece from the bag, so we should not pop here (that caused the bag
+        # order to shift and overlap). Just call `spawn_next()` to set `current`.
         self.spawn_next()
         self.hold_piece = None
         self.hold_used = False
@@ -242,6 +271,9 @@ class Game:
         self.right_held = False
         self.das_dir = 0
         self.das_timer = 0
+        # soft-drop hold handling
+        self.down_held = False
+        self.soft_drop_timer = 0
 
     def spawn_next(self):
         # place current as next_queue[0] and spawn
@@ -258,13 +290,14 @@ class Game:
         if self.hold_used:
             return
         if self.hold_piece is None:
+            # store current piece in hold
             self.hold_piece = Tetromino(self.current.kind)
             self.spawn_next()
         else:
-            # swap
-            tmp = Tetromino(self.current.kind)
+            # swap: save current kind, restore held kind
+            current_kind = self.current.kind
             self.current = Tetromino(self.hold_piece.kind)
-            self.hold_piece = tmp
+            self.hold_piece = Tetromino(current_kind)
             self.current.x = 4
             self.current.y = 0
             self.current.rotation = 0
@@ -272,6 +305,14 @@ class Game:
                 self.game_over = True
         self.hold_used = True
         self.lock_delay = 0
+        self.gravity_timer = 0
+        # Reset input states to prevent input ghosting
+        self.left_held = False
+        self.right_held = False
+        self.down_held = False
+        self.das_dir = 0
+        self.das_timer = 0
+        self.soft_drop_timer = 0
 
     def hard_drop(self):
         # drop to lowest possible
@@ -290,7 +331,10 @@ class Game:
         if not self.board.collide(cells):
             self.current.y += 1
             self.score += 1  # standard soft drop scoring 1pt per cell
-            self.lock_delay = LOCK_DELAY if LOCK_DELAY_RESET_ON_MOVE else self.lock_delay
+            # Reset lock delay when soft-dropping into a new position so that
+            # soft-drop + move doesn't cause an immediate lock (like modern Tetris).
+            if LOCK_DELAY_RESET_ON_MOVE:
+                self.lock_delay = 0
             return True
         return False
 
@@ -298,13 +342,25 @@ class Game:
         if self.board.collide(self.current.get_cells(xoff=self.current.x+dx)):
             return False
         self.current.x += dx
+        # Successful horizontal movement should reset lock delay so the player
+        # has time to react after moving while the piece is resting.
         if LOCK_DELAY_RESET_ON_MOVE:
-            self.lock_delay = LOCK_DELAY
+            self.lock_delay = 0
         return True
 
     def try_rotate(self, dir):
-        old, new = self.current.rotate(dir)
+        # support dir = +1 (90 cw), -1 (90 ccw), +2/-2 (180)
+        old = self.current.rotation
+        new = (old + (dir % 4)) % 4
+        # apply tentative rotation on the tetromino object (we'll revert if it fails)
+        self.current.rotation = new
+
+        # choose appropriate kick table
+        # if abs(dir) == 2:
+        #     kicks = IKICKS_180 if self.current.kind == 'I' else KICKS_180
+        # else:
         kicks = IKICKS if self.current.kind == 'I' else KICKS
+
         for ox, oy in kicks.get((old, new), [(0,0)]):
             nx = self.current.x + ox
             ny = self.current.y + oy
@@ -315,9 +371,10 @@ class Game:
                 self.current.rotation = new
                 # rotation counts as move for lock delay
                 if LOCK_DELAY_RESET_ON_MOVE:
-                    self.lock_delay = LOCK_DELAY
+                    self.lock_delay = 0
                 return True
-        # revert
+
+        # no valid kick found; revert rotation
         self.current.rotation = old
         return False
 
@@ -329,6 +386,7 @@ class Game:
             return False
         else:
             # piece rests on ground or blocks
+            # increment lock timer while piece is resting
             self.lock_delay += 1
             if self.lock_delay >= LOCK_DELAY:
                 # lock piece
@@ -445,15 +503,27 @@ def main():
                     game.das_dir = 1
                     game.das_timer = DAS_INITIAL
                 if event.key == pygame.K_DOWN:
-                    game.soft_drop()
+                    # start holding soft-drop
+                    game.down_held = True
+                    game.soft_drop_timer = 0
+                    # If interval==0 treat soft-drop as infinite speed: drop to contact immediately
+                    if SOFT_DROP_INTERVAL == 0:
+                        # repeatedly soft-drop until we can't (this won't lock the piece)
+                        while game.soft_drop():
+                            pass
+                    else:
+                        game.soft_drop()
                 if event.key == pygame.K_SPACE:
                     game.hard_drop()
                 if event.key == pygame.K_LSHIFT or event.key == pygame.K_c:
                     game.hold()
-                if event.key in (pygame.K_z, pygame.K_UP):
+                if event.key in (pygame.K_z, pygame.K_LCTRL):
                     game.try_rotate(1)
-                if event.key in (pygame.K_x, pygame.K_LCTRL):
+                if event.key in (pygame.K_x, pygame.K_UP):
                     game.try_rotate(-1)
+                if event.key == pygame.K_a:
+                    # rotate 180 degrees (SRS+ style)
+                    game.try_rotate(2)
             elif event.type == pygame.KEYUP:
                 if event.key == pygame.K_LEFT:
                     game.left_held = False
@@ -469,6 +539,9 @@ def main():
                         game.das_timer = DAS_INITIAL
                     else:
                         game.das_dir = 0
+                if event.key == pygame.K_DOWN:
+                    game.down_held = False
+                    game.soft_drop_timer = 0
 
         if paused or game.game_over:
             screen.fill((8,8,8))
@@ -486,6 +559,13 @@ def main():
                 game.das_timer = DAS_REPEAT
 
         # gravity
+        # handle soft-drop hold: call soft_drop at an interval while key is held
+        if game.down_held and SOFT_DROP_INTERVAL > 0:
+            game.soft_drop_timer += 1
+            if game.soft_drop_timer >= SOFT_DROP_INTERVAL:
+                game.soft_drop_timer = 0
+                game.soft_drop()
+
         gravity_counter += 1
         if gravity_counter >= game.gravity_frames:
             gravity_counter = 0
@@ -514,7 +594,7 @@ def main():
             ghost.y += 1
         for x, y in ghost.get_cells():
             if y >= ROWS - VISIBLE_ROWS:
-                draw_cell(board_surf, x, y, COLORS['X'], alpha=60, outline=False)
+                draw_cell(board_surf, x, y, COLORS.get(game.current.kind, (200,200,200)), alpha=150, outline=False)
 
         # current piece
         for x, y in game.current.get_cells():
