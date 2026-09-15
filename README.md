@@ -5,6 +5,8 @@ A from-scratch Guideline Tetris engine and a reinforcement-learning agent that
 learns to clear lines on CPU, plus a hand-tuned evaluator strong enough to be a
 useful yardstick and an optional teacher.
 
+The majority of the contents of this project was generated with ARTIFICIAL INTELLIGENCE. 
+
 This project was written after reviewing the older `vibecode.py` / `dqn.py` code
 in the parent folder. Their Tetris *engine* was usable and their pygame front end
 was worth imitating; their *learning* was not, and the reasons are instructive
