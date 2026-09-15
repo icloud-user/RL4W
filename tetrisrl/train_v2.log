@@ -1,0 +1,191 @@
+training: rounds=170 workers=12 episodes/worker=6 grad_steps/round=300 device=cpu
+  lr=0.0007 gamma=0.99 n_step=3 eps 1.0->0.02 over 250000 steps
+round    1/170 | lines    0.03 | score        3 | eps 0.994 | buf    1649 | loss 1.9858 | +  1649 |   5.1s
+round    2/170 | lines    0.00 | score        0 | eps 0.987 | buf    3222 | loss 1.4923 | +  1573 |   1.9s
+round    3/170 | lines    0.03 | score        3 | eps 0.981 | buf    4831 | loss 1.4247 | +  1609 |   2.2s
+round    4/170 | lines    0.00 | score        0 | eps 0.975 | buf    6409 | loss 1.3797 | +  1578 |   2.0s
+round    5/170 | lines    0.00 | score        0 | eps 0.969 | buf    8006 | loss 1.3508 | +  1597 |   2.2s
+round    6/170 | lines    0.01 | score        1 | eps 0.963 | buf    9533 | loss 1.3696 | +  1527 |   2.2s
+round    7/170 | lines    0.00 | score        0 | eps 0.956 | buf   11124 | loss 1.3372 | +  1591 |   2.3s
+round    8/170 | lines    0.03 | score        3 | eps 0.950 | buf   12747 | loss 1.3160 | +  1623 |   2.3s
+round    9/170 | lines    0.01 | score        1 | eps 0.944 | buf   14290 | loss 1.3210 | +  1543 |   2.2s
+  eval: 0.17 lines/game (max 2), score 25, pieces 20 *best*
+round   10/170 | lines    0.01 | score        1 | eps 0.938 | buf   15898 | loss 1.3095 | +  1608 |   3.4s
+round   11/170 | lines    0.01 | score        1 | eps 0.932 | buf   17413 | loss 1.2875 | +  1515 |   2.2s
+round   12/170 | lines    0.01 | score        1 | eps 0.926 | buf   18948 | loss 1.2734 | +  1535 |   2.3s
+round   13/170 | lines    0.03 | score        3 | eps 0.919 | buf   20539 | loss 1.2602 | +  1591 |   2.2s
+round   14/170 | lines    0.07 | score        7 | eps 0.913 | buf   22092 | loss 1.2567 | +  1553 |   2.4s
+round   15/170 | lines    0.03 | score        3 | eps 0.907 | buf   23673 | loss 1.2507 | +  1581 |   2.4s
+round   16/170 | lines    0.06 | score        6 | eps 0.901 | buf   25234 | loss 1.2502 | +  1561 |   2.5s
+round   17/170 | lines    0.03 | score        3 | eps 0.895 | buf   26816 | loss 1.2271 | +  1582 |   2.6s
+round   18/170 | lines    0.06 | score        6 | eps 0.889 | buf   28403 | loss 1.2432 | +  1587 |   2.5s
+round   19/170 | lines    0.06 | score        6 | eps 0.882 | buf   29987 | loss 1.2292 | +  1584 |   2.4s
+  eval: 0.08 lines/game (max 1), score 8, pieces 20
+round   20/170 | lines    0.03 | score        3 | eps 0.876 | buf   31602 | loss 1.2353 | +  1615 |   3.5s
+round   21/170 | lines    0.10 | score       10 | eps 0.870 | buf   33213 | loss 1.2189 | +  1611 |   2.5s
+round   22/170 | lines    0.04 | score        4 | eps 0.864 | buf   34724 | loss 1.2175 | +  1511 |   2.5s
+round   23/170 | lines    0.04 | score        4 | eps 0.858 | buf   36288 | loss 1.2066 | +  1564 |   2.6s
+round   24/170 | lines    0.03 | score        3 | eps 0.852 | buf   37789 | loss 1.1981 | +  1501 |   2.5s
+round   25/170 | lines    0.04 | score        4 | eps 0.846 | buf   39310 | loss 1.2068 | +  1521 |   2.6s
+round   26/170 | lines    0.04 | score        4 | eps 0.840 | buf   40828 | loss 1.2123 | +  1518 |   2.7s
+round   27/170 | lines    0.01 | score        1 | eps 0.834 | buf   42318 | loss 1.2126 | +  1490 |   2.6s
+round   28/170 | lines    0.06 | score        6 | eps 0.828 | buf   43831 | loss 1.2211 | +  1513 |   2.5s
+round   29/170 | lines    0.03 | score        3 | eps 0.822 | buf   45386 | loss 1.2173 | +  1555 |   2.5s
+  eval: 0.17 lines/game (max 1), score 17, pieces 19
+round   30/170 | lines    0.04 | score        4 | eps 0.816 | buf   46903 | loss 1.2116 | +  1517 |   3.5s
+round   31/170 | lines    0.04 | score        4 | eps 0.810 | buf   48432 | loss 1.2217 | +  1529 |   2.7s
+round   32/170 | lines    0.04 | score        4 | eps 0.804 | buf   49979 | loss 1.2158 | +  1547 |   2.7s
+round   33/170 | lines    0.10 | score       10 | eps 0.798 | buf   51550 | loss 1.2163 | +  1571 |   2.8s
+round   34/170 | lines    0.06 | score        6 | eps 0.792 | buf   53045 | loss 1.2093 | +  1495 |   2.6s
+round   35/170 | lines    0.11 | score       11 | eps 0.786 | buf   54571 | loss 1.2158 | +  1526 |   2.8s
+round   36/170 | lines    0.07 | score        7 | eps 0.780 | buf   56064 | loss 1.2194 | +  1493 |   2.7s
+round   37/170 | lines    0.06 | score        6 | eps 0.774 | buf   57609 | loss 1.2161 | +  1545 |   2.8s
+round   38/170 | lines    0.10 | score       10 | eps 0.768 | buf   59158 | loss 1.2252 | +  1549 |   2.9s
+round   39/170 | lines    0.07 | score        7 | eps 0.762 | buf   60694 | loss 1.2184 | +  1536 |   2.9s
+  eval: 0.08 lines/game (max 1), score 8, pieces 19
+round   40/170 | lines    0.10 | score       10 | eps 0.756 | buf   62224 | loss 1.2339 | +  1530 |   3.9s
+round   41/170 | lines    0.06 | score        6 | eps 0.750 | buf   63801 | loss 1.2245 | +  1577 |   2.9s
+round   42/170 | lines    0.04 | score        4 | eps 0.744 | buf   65300 | loss 1.2269 | +  1499 |   2.8s
+round   43/170 | lines    0.08 | score        8 | eps 0.738 | buf   66824 | loss 1.2300 | +  1524 |   2.9s
+round   44/170 | lines    0.01 | score        1 | eps 0.732 | buf   68270 | loss 1.2345 | +  1446 |   2.9s
+round   45/170 | lines    0.06 | score        6 | eps 0.726 | buf   69790 | loss 1.2227 | +  1520 |   3.0s
+round   46/170 | lines    0.04 | score        4 | eps 0.721 | buf   71281 | loss 1.2194 | +  1491 |   2.9s
+round   47/170 | lines    0.06 | score        6 | eps 0.715 | buf   72800 | loss 1.2095 | +  1519 |   3.0s
+round   48/170 | lines    0.10 | score       10 | eps 0.708 | buf   74381 | loss 1.2139 | +  1581 |   3.0s
+round   49/170 | lines    0.01 | score        1 | eps 0.702 | buf   75907 | loss 1.2106 | +  1526 |   3.2s
+  eval: 0.25 lines/game (max 1), score 25, pieces 20 *best*
+round   50/170 | lines    0.01 | score        1 | eps 0.696 | buf   77539 | loss 1.2132 | +  1632 |   4.1s
+round   51/170 | lines    0.08 | score        8 | eps 0.690 | buf   79025 | loss 1.2051 | +  1486 |   3.0s
+round   52/170 | lines    0.03 | score        3 | eps 0.684 | buf   80582 | loss 1.2136 | +  1557 |   3.3s
+round   53/170 | lines    0.10 | score       10 | eps 0.678 | buf   82085 | loss 1.2175 | +  1503 |   3.3s
+round   54/170 | lines    0.06 | score        6 | eps 0.672 | buf   83626 | loss 1.2160 | +  1541 |   3.1s
+round   55/170 | lines    0.03 | score        3 | eps 0.666 | buf   85183 | loss 1.2138 | +  1557 |   3.1s
+round   56/170 | lines    0.14 | score       14 | eps 0.660 | buf   86765 | loss 1.2098 | +  1582 |   3.2s
+round   57/170 | lines    0.15 | score       16 | eps 0.654 | buf   88306 | loss 1.2183 | +  1541 |   3.3s
+round   58/170 | lines    0.04 | score        4 | eps 0.648 | buf   89808 | loss 1.2220 | +  1502 |   3.1s
+round   59/170 | lines    0.14 | score       14 | eps 0.642 | buf   91338 | loss 1.2221 | +  1530 |   3.2s
+  eval: 0.08 lines/game (max 1), score 8, pieces 21
+round   60/170 | lines    0.07 | score        7 | eps 0.636 | buf   92945 | loss 1.2202 | +  1607 |   4.3s
+round   61/170 | lines    0.11 | score       11 | eps 0.629 | buf   94533 | loss 1.2356 | +  1588 |   3.2s
+round   62/170 | lines    0.11 | score       11 | eps 0.623 | buf   96105 | loss 1.2280 | +  1572 |   3.3s
+round   63/170 | lines    0.10 | score       10 | eps 0.617 | buf   97630 | loss 1.2259 | +  1525 |   3.2s
+round   64/170 | lines    0.03 | score        3 | eps 0.611 | buf   99192 | loss 1.2289 | +  1562 |   3.3s
+round   65/170 | lines    0.11 | score       11 | eps 0.605 | buf  100727 | loss 1.2200 | +  1535 |   3.3s
+round   66/170 | lines    0.12 | score       12 | eps 0.599 | buf  102347 | loss 1.2371 | +  1620 |   3.4s
+round   67/170 | lines    0.17 | score       17 | eps 0.593 | buf  103947 | loss 1.2327 | +  1600 |   3.5s
+round   68/170 | lines    0.11 | score       11 | eps 0.586 | buf  105598 | loss 1.2331 | +  1651 |   3.4s
+round   69/170 | lines    0.04 | score        4 | eps 0.580 | buf  107072 | loss 1.2309 | +  1474 |   3.3s
+  eval: 0.42 lines/game (max 1), score 42, pieces 24 *best*
+round   70/170 | lines    0.11 | score       11 | eps 0.574 | buf  108621 | loss 1.2354 | +  1549 |   4.8s
+round   71/170 | lines    0.07 | score        7 | eps 0.568 | buf  110198 | loss 1.2301 | +  1577 |   3.6s
+round   72/170 | lines    0.18 | score       18 | eps 0.562 | buf  111818 | loss 1.2283 | +  1620 |   3.8s
+round   73/170 | lines    0.11 | score       11 | eps 0.555 | buf  113442 | loss 1.2326 | +  1624 |   3.8s
+round   74/170 | lines    0.10 | score       10 | eps 0.549 | buf  115080 | loss 1.2476 | +  1638 |   3.6s
+round   75/170 | lines    0.07 | score        7 | eps 0.543 | buf  116635 | loss 1.2412 | +  1555 |   3.5s
+round   76/170 | lines    0.12 | score       12 | eps 0.536 | buf  118297 | loss 1.2229 | +  1662 |   3.5s
+round   77/170 | lines    0.15 | score       15 | eps 0.530 | buf  119946 | loss 1.2320 | +  1649 |   3.6s
+round   78/170 | lines    0.14 | score       14 | eps 0.523 | buf  121618 | loss 1.2407 | +  1672 |   3.6s
+round   79/170 | lines    0.11 | score       11 | eps 0.517 | buf  123186 | loss 1.2332 | +  1568 |   3.6s
+  eval: 0.08 lines/game (max 1), score 8, pieces 24
+round   80/170 | lines    0.17 | score       17 | eps 0.511 | buf  124785 | loss 1.2491 | +  1599 |   4.7s
+round   81/170 | lines    0.11 | score       11 | eps 0.504 | buf  126449 | loss 1.2377 | +  1664 |   3.6s
+round   82/170 | lines    0.18 | score       18 | eps 0.498 | buf  128149 | loss 1.2451 | +  1700 |   3.7s
+round   83/170 | lines    0.19 | score       19 | eps 0.491 | buf  129735 | loss 1.2463 | +  1586 |   3.7s
+round   84/170 | lines    0.11 | score       11 | eps 0.485 | buf  131369 | loss 1.2431 | +  1634 |   4.0s
+round   85/170 | lines    0.17 | score       17 | eps 0.479 | buf  132984 | loss 1.2452 | +  1615 |   4.1s
+round   86/170 | lines    0.25 | score       25 | eps 0.472 | buf  134741 | loss 1.2424 | +  1757 |   4.2s
+round   87/170 | lines    0.22 | score       22 | eps 0.465 | buf  136434 | loss 1.2413 | +  1693 |   4.2s
+round   88/170 | lines    0.18 | score       18 | eps 0.458 | buf  138182 | loss 1.2506 | +  1748 |   4.2s
+round   89/170 | lines    0.19 | score       19 | eps 0.452 | buf  139878 | loss 1.2563 | +  1696 |   4.3s
+  eval: 0.83 lines/game (max 3), score 92, pieces 28 *best*
+round   90/170 | lines    0.29 | score       29 | eps 0.445 | buf  141659 | loss 1.2491 | +  1781 |   5.7s
+round   91/170 | lines    0.24 | score       25 | eps 0.438 | buf  143421 | loss 1.2680 | +  1762 |   4.3s
+round   92/170 | lines    0.18 | score       18 | eps 0.431 | buf  145125 | loss 1.2575 | +  1704 |   4.4s
+round   93/170 | lines    0.21 | score       21 | eps 0.425 | buf  146800 | loss 1.2604 | +  1675 |   4.4s
+round   94/170 | lines    0.24 | score       24 | eps 0.418 | buf  148574 | loss 1.2556 | +  1774 |   4.2s
+round   95/170 | lines    0.26 | score       27 | eps 0.411 | buf  150288 | loss 1.2776 | +  1714 |   4.4s
+round   96/170 | lines    0.22 | score       22 | eps 0.404 | buf  152075 | loss 1.2609 | +  1787 |   4.4s
+round   97/170 | lines    0.21 | score       21 | eps 0.397 | buf  153864 | loss 1.2714 | +  1789 |   4.4s
+round   98/170 | lines    0.15 | score       16 | eps 0.390 | buf  155591 | loss 1.2704 | +  1727 |   4.4s
+round   99/170 | lines    0.35 | score       35 | eps 0.383 | buf  157299 | loss 1.2690 | +  1708 |   4.5s
+  eval: 1.00 lines/game (max 4), score 104, pieces 28 *best*
+round  100/170 | lines    0.43 | score       46 | eps 0.376 | buf  159197 | loss 1.2767 | +  1898 |   5.7s
+round  101/170 | lines    0.35 | score       35 | eps 0.369 | buf  160992 | loss 1.2749 | +  1795 |   4.5s
+round  102/170 | lines    0.33 | score       33 | eps 0.362 | buf  162815 | loss 1.2807 | +  1823 |   4.6s
+round  103/170 | lines    0.24 | score       24 | eps 0.355 | buf  164583 | loss 1.2934 | +  1768 |   4.7s
+round  104/170 | lines    0.32 | score       33 | eps 0.348 | buf  166423 | loss 1.2875 | +  1840 |   4.5s
+round  105/170 | lines    0.28 | score       29 | eps 0.341 | buf  168165 | loss 1.2941 | +  1742 |   4.7s
+round  106/170 | lines    0.36 | score       38 | eps 0.333 | buf  170123 | loss 1.3062 | +  1958 |   4.7s
+round  107/170 | lines    0.36 | score       36 | eps 0.326 | buf  172061 | loss 1.3038 | +  1938 |   4.6s
+round  108/170 | lines    0.43 | score       44 | eps 0.318 | buf  173959 | loss 1.3122 | +  1898 |   4.6s
+round  109/170 | lines    0.28 | score       28 | eps 0.311 | buf  175797 | loss 1.3029 | +  1838 |   4.6s
+  eval: 0.08 lines/game (max 1), score 8, pieces 27
+round  110/170 | lines    0.32 | score       33 | eps 0.304 | buf  177657 | loss 1.3142 | +  1860 |   6.1s
+round  111/170 | lines    0.28 | score       29 | eps 0.296 | buf  179489 | loss 1.3044 | +  1832 |   4.7s
+round  112/170 | lines    0.38 | score       38 | eps 0.289 | buf  181367 | loss 1.3234 | +  1878 |   5.0s
+round  113/170 | lines    0.38 | score       38 | eps 0.282 | buf  183266 | loss 1.3311 | +  1899 |   4.2s
+round  114/170 | lines    0.43 | score       44 | eps 0.274 | buf  185169 | loss 1.3232 | +  1903 |   5.3s
+round  115/170 | lines    0.47 | score       48 | eps 0.266 | buf  187123 | loss 1.3330 | +  1954 |   5.5s
+round  116/170 | lines    0.49 | score       52 | eps 0.259 | buf  189152 | loss 1.3415 | +  2029 |   5.5s
+round  117/170 | lines    0.62 | score       66 | eps 0.251 | buf  191125 | loss 1.3469 | +  1973 |   5.3s
+round  118/170 | lines    0.39 | score       42 | eps 0.243 | buf  193104 | loss 1.3537 | +  1979 |   5.7s
+round  119/170 | lines    0.49 | score       53 | eps 0.236 | buf  195009 | loss 1.3567 | +  1905 |   5.3s
+  eval: 0.83 lines/game (max 3), score 88, pieces 27
+round  120/170 | lines    0.68 | score       69 | eps 0.228 | buf  196971 | loss 1.3666 | +  1962 |   7.0s
+round  121/170 | lines    0.49 | score       50 | eps 0.220 | buf  198912 | loss 1.3720 | +  1941 |   6.0s
+round  122/170 | lines    0.42 | score       46 | eps 0.213 | buf  200753 | loss 1.3625 | +  1841 |   5.5s
+round  123/170 | lines    0.43 | score       44 | eps 0.205 | buf  202747 | loss 1.3726 | +  1994 |   5.7s
+round  124/170 | lines    0.47 | score       51 | eps 0.198 | buf  204617 | loss 1.3740 | +  1870 |   5.9s
+round  125/170 | lines    0.69 | score       72 | eps 0.190 | buf  206660 | loss 1.3867 | +  2043 |   6.1s
+round  126/170 | lines    0.47 | score       49 | eps 0.182 | buf  208573 | loss 1.3988 | +  1913 |   6.2s
+round  127/170 | lines    0.42 | score       42 | eps 0.175 | buf  210457 | loss 1.4001 | +  1884 |   6.4s
+round  128/170 | lines    0.51 | score       53 | eps 0.167 | buf  212395 | loss 1.3840 | +  1938 |   6.3s
+round  129/170 | lines    0.44 | score       45 | eps 0.160 | buf  214300 | loss 1.3952 | +  1905 |   5.6s
+  eval: 0.92 lines/game (max 3), score 96, pieces 28
+round  130/170 | lines    0.54 | score       57 | eps 0.152 | buf  216265 | loss 1.4026 | +  1965 |   7.2s
+round  131/170 | lines    0.47 | score       51 | eps 0.145 | buf  218150 | loss 1.4035 | +  1885 |   5.4s
+round  132/170 | lines    0.53 | score       55 | eps 0.137 | buf  220044 | loss 1.4134 | +  1894 |   5.8s
+round  133/170 | lines    0.60 | score       62 | eps 0.129 | buf  222098 | loss 1.4167 | +  2054 |   5.8s
+round  134/170 | lines    0.81 | score       85 | eps 0.121 | buf  224172 | loss 1.4020 | +  2074 |   5.9s
+round  135/170 | lines    0.69 | score       76 | eps 0.114 | buf  226128 | loss 1.4336 | +  1956 |   5.7s
+round  136/170 | lines    0.79 | score       81 | eps 0.106 | buf  228176 | loss 1.4450 | +  2048 |   5.5s
+round  137/170 | lines    0.58 | score       60 | eps 0.098 | buf  230133 | loss 1.4600 | +  1957 |   5.4s
+round  138/170 | lines    0.56 | score       58 | eps 0.090 | buf  232124 | loss 1.4462 | +  1991 |   5.4s
+round  139/170 | lines    0.75 | score       78 | eps 0.082 | buf  234153 | loss 1.4544 | +  2029 |   5.4s
+  eval: 0.83 lines/game (max 2), score 83, pieces 29
+round  140/170 | lines    0.88 | score       92 | eps 0.074 | buf  236340 | loss 1.4642 | +  2187 |   6.8s
+round  141/170 | lines    0.89 | score       92 | eps 0.065 | buf  238491 | loss 1.4785 | +  2151 |   5.6s
+round  142/170 | lines    1.11 | score      115 | eps 0.057 | buf  240588 | loss 1.4756 | +  2097 |   5.5s
+round  143/170 | lines    0.72 | score       75 | eps 0.049 | buf  242671 | loss 1.4735 | +  2083 |   5.6s
+round  144/170 | lines    0.64 | score       67 | eps 0.041 | buf  244706 | loss 1.4893 | +  2035 |   5.6s
+round  145/170 | lines    0.54 | score       56 | eps 0.033 | buf  246691 | loss 1.4839 | +  1985 |   5.7s
+round  146/170 | lines    0.69 | score       70 | eps 0.025 | buf  248696 | loss 1.4847 | +  2005 |   5.8s
+round  147/170 | lines    0.68 | score       70 | eps 0.020 | buf  250800 | loss 1.4959 | +  2104 |   5.7s
+round  148/170 | lines    0.90 | score       94 | eps 0.020 | buf  252941 | loss 1.5021 | +  2141 |   5.8s
+round  149/170 | lines    0.79 | score       84 | eps 0.020 | buf  254896 | loss 1.5068 | +  1955 |   5.5s
+  eval: 0.92 lines/game (max 4), score 92, pieces 28
+round  150/170 | lines    0.88 | score       92 | eps 0.020 | buf  256932 | loss 1.5116 | +  2036 |   7.0s
+round  151/170 | lines    0.94 | score      101 | eps 0.020 | buf  259115 | loss 1.5209 | +  2183 |   5.8s
+round  152/170 | lines    0.88 | score       97 | eps 0.020 | buf  261207 | loss 1.5309 | +  2092 |   5.9s
+round  153/170 | lines    0.92 | score       97 | eps 0.020 | buf  263277 | loss 1.5293 | +  2070 |   6.0s
+round  154/170 | lines    0.56 | score       60 | eps 0.020 | buf  265234 | loss 1.5389 | +  1957 |   5.6s
+round  155/170 | lines    0.72 | score       75 | eps 0.020 | buf  267175 | loss 1.5368 | +  1941 |   5.8s
+round  156/170 | lines    1.03 | score      110 | eps 0.020 | buf  269272 | loss 1.5585 | +  2097 |   5.8s
+round  157/170 | lines    0.85 | score       90 | eps 0.020 | buf  271308 | loss 1.5489 | +  2036 |   6.0s
+round  158/170 | lines    0.96 | score      102 | eps 0.020 | buf  273327 | loss 1.5641 | +  2019 |   6.2s
+round  159/170 | lines    0.92 | score       97 | eps 0.020 | buf  275180 | loss 1.5720 | +  1853 |   6.0s
+  eval: 0.17 lines/game (max 1), score 17, pieces 26
+round  160/170 | lines    0.57 | score       58 | eps 0.020 | buf  276929 | loss 1.5891 | +  1749 |   7.2s
+round  161/170 | lines    0.76 | score       81 | eps 0.020 | buf  278931 | loss 1.5688 | +  2002 |   6.1s
+round  162/170 | lines    0.74 | score       76 | eps 0.020 | buf  280874 | loss 1.5848 | +  1943 |   6.2s
+round  163/170 | lines    0.57 | score       58 | eps 0.020 | buf  282752 | loss 1.5873 | +  1878 |   6.1s
+round  164/170 | lines    0.60 | score       62 | eps 0.020 | buf  284732 | loss 1.5849 | +  1980 |   6.1s
+round  165/170 | lines    0.96 | score      106 | eps 0.020 | buf  286903 | loss 1.5830 | +  2171 |   6.2s
+round  166/170 | lines    0.83 | score       88 | eps 0.020 | buf  288873 | loss 1.5900 | +  1970 |   6.1s
+round  167/170 | lines    1.07 | score      118 | eps 0.020 | buf  291042 | loss 1.6067 | +  2169 |   6.2s
+round  168/170 | lines    0.82 | score       89 | eps 0.020 | buf  293038 | loss 1.6001 | +  1996 |   6.0s
+round  169/170 | lines    1.07 | score      113 | eps 0.020 | buf  295236 | loss 1.6181 | +  2198 |   6.2s
+  eval: 0.42 lines/game (max 2), score 42, pieces 28
+round  170/170 | lines    0.94 | score      100 | eps 0.020 | buf  297298 | loss 1.6362 | +  2062 |   7.5s
+done in 731s. checkpoints: D:\Coding\RL4W\tetrisrl\checkpoints\latest.pt, D:\Coding\RL4W\tetrisrl\checkpoints\best.pt
+wall clock: 732s

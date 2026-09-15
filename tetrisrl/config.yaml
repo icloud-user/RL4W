@@ -1,0 +1,151 @@
+# Tetris RL configuration.
+#
+# Everything the agent learns from is defined here. The defaults are the ones
+# used for the results quoted in README.md.
+
+game:
+  cols: 10
+  rows: 22           # includes 2 hidden buffer rows at the top
+  visible_rows: 20
+  cell_size: 30
+  seed: null         # null = random
+
+agent:
+  lr: 0.0007
+  # Supervised warm start gets its own, larger step: fitting a teacher needs a
+  # bigger update than TD learning, which is noisy and unstable at a high rate.
+  # Measured on identical data: 7e-4 -> 78% imitation accuracy (0 lines cleared),
+  # 1e-3 -> 91% (clears lines).
+  warmstart_lr: 0.001
+  gamma: 0.99
+  n_step: 3          # n-step returns; 1 = plain one-step DQN
+  batch_size: 256
+  buffer_size: 400000
+  target_sync: 1500  # gradient steps between target-network refreshes
+
+  # Feature-set version. 2 adds row/column transitions, well depth and max
+  # height, which describe *stacking quality*. Measured: v2 gives better inputs
+  # for supervised fitting (45.6% -> 49.8% held-out imitation accuracy) but SLOWER
+  # end-to-end RL convergence in three 130-170 round runs (0.1-1.8 lines/game
+  # against ~50 at the same stage with v1). Version 1 is therefore the default,
+  # because v1 is what the working checkpoint was trained with. A checkpoint
+  # records the version and a layout fingerprint, so mixing them is detected.
+  feature_version: 1
+
+  # Replay sampling.
+  #   'uniform'     - uniform sampling with rare-event oversampling. DEFAULT:
+  #                   prioritized was measured to regress (training loss climbed
+  #                   1.27 -> 1.64 while measured lines/game fell), which fits a
+  #                   reward landscape this sparse, where most transitions score
+  #                   identically and prioritization chases outliers.
+  #   'prioritized' - sample by TD error with importance-sampling weights.
+  replay: uniform
+  per_alpha: 0.6          # how strongly to favour high-error transitions
+  per_beta_start: 0.4     # importance-sampling correction, annealed to 1.0
+  per_beta_steps: 200000
+  interesting_frac: 0.25  # uniform replay only: share of rare events per batch
+
+  # Exploration schedule. Measured, and the earlier advice here was WRONG.
+  #
+  # It is tempting to "size the decay to the run" so exploration finishes before
+  # training ends. That is actively harmful in this domain. At 250000 the agent
+  # is still at epsilon 0.61 by round 189 -- and that is the run that reached
+  # 50 lines/game. Decaying to the floor by round 76 with an essentially
+  # untrained network makes it play greedily, lock onto one column and die in
+  # ~19 pieces, never recovering: a matched 150-round A/B at 40000 ended on 0.04
+  # and 0.29 lines/round, against 19.25 for the same settings at 250000.
+  #
+  # Tetris rewards are sparse enough that exploration must outlast the point
+  # where the value function starts to be useful. Keep this LARGE.
+  epsilon_start: 1.0
+  epsilon_end: 0.02
+  epsilon_decay_steps: 250000
+
+  # Learning-rate annealing, on the same transition clock as epsilon.
+  #
+  # DEFAULT OFF, because it was measured and it HURT. The hypothesis was that a
+  # constant rate caused the observed divergence (loss climbing 1.35 -> 17.4
+  # while best beat final by 60%), and that annealing would fix it. A matched
+  # ~420-round A/B, 7 workers per arm, identical except for this setting:
+  #
+  #   lr_decay_fraction 1.0 (annealed) : 21.2 lines/game, 85 pieces/game
+  #   lr_decay_fraction 0.0 (constant) : 30.2 lines/game, 122 pieces/game
+  #
+  # Annealing lowered the training loss but produced a *worse* agent. The decay
+  # is tied to epsilon_decay_steps, so it completed at ~round 385 and then froze
+  # the rate while the agent was still improving. Constant-rate exploration plus
+  # constant-rate learning is the better pairing here.
+  #
+  # It remains available (set lr_decay_fraction to 1) for anyone who wants to
+  # re-test with a decay window sized to the run rather than to epsilon.
+  lr_decay_fraction: 0.0
+  lr_warmup_fraction: 0.3    # only used when annealing is enabled
+  lr_min: 0.00007            # only used when annealing is enabled
+
+# Reward shaping.
+#
+# Progress terms. The per-step bonus is what makes survival worth something; it
+# also applies gentle pressure to keep the stack low, because a low stack means
+# more steps before dying. Line clears dominate and topping out is punished.
+#
+# Measured effect (3 rounds of 5 episodes/worker, 12 workers, seed 1):
+#   per-step -1.0, single +10   -> agent learns to clear lines
+#   per-step  0.0, single +10   -> only ~1.5 lines/game; not enough pressure
+#
+# Board-quality terms are OFF by default, because the version-2 features already
+# show the network the same information and double-counting it through the
+# reward biases the value function toward myopic play. Turn them on to trade
+# survival for a tidier stack; see README for the measured comparison.
+reward:
+  survival_bonus: -1.0
+  single: 10.0
+  double: 30.0
+  triple: 60.0
+  tetris: 100.0
+  death_penalty: 10.0
+
+  # Board-quality shaping (0 disables each).
+  height_penalty: 0.0        # per unit of maximum column height
+  hole_penalty: 0.0          # per hole *present* after the placement
+  new_hole_penalty: 0.0      # per hole *created* by this placement
+  bumpiness_penalty: 0.0     # per unit of surface roughness
+
+training:
+  rounds: 300
+  workers: 12               # 16 logical cores; leave some headroom
+  episodes_per_worker: 6
+  checkpoint_every: 25
+  eval_every: 10
+  eval_games: 12            # in-training eval; use `eval` for the real numbers
+
+  # Update budget per round.
+  #
+  # grad_steps_auto scales the number of gradient steps with the amount of
+  # experience the workers returned, at grad_steps_per_sample updates per
+  # transition. A FIXED step count is a trap: an improving agent plays longer
+  # episodes, so later rounds deliver several times more transitions for the same
+  # number of updates, and the updates-per-sample ratio collapses exactly when
+  # learning matters most. Set grad_steps_auto: false to use the fixed
+  # grad_steps_per_round instead.
+  grad_steps_auto: true
+  grad_steps_per_sample: 0.25
+  min_grad_steps_per_round: 200
+  grad_steps_per_round: 300   # used only when grad_steps_auto is false
+
+  # Imitation warm start (cross-entropy on the heuristic's choices).
+  #
+  # DEFAULT OFF, and deliberately so. It was measured and did not pay off: the
+  # network fits the teacher's choices on its own data (94-100%) but generalises
+  # poorly (~8-28% on unseen boards), and because the teacher's policy is sharp,
+  # a 30%-accurate clone diverges into states the teacher never visits and then
+  # tops out. RL from scratch overtakes the warm-started clone within a handful
+  # of rounds, so the warm start is only worth enabling if you want a quick
+  # approximate clone.
+  imitation_steps: 0
+  imitation_episodes: 15
+  imitation_batch_size: 256
+
+  # Fraction of actions taken by the heuristic teacher during the first
+  # teacher_rounds rounds (0 disables).
+  teacher_fraction: 0.0
+  teacher_rounds: 0
