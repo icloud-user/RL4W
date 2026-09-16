@@ -59,7 +59,11 @@ def _rotations(kind):
     """Per rotation: cells, covered columns, bottom profile, top profile, width."""
     out = []
     for rot in range(4):
-        cells = tuple((ox, -oy) for ox, oy in SHAPES[kind][rot])
+        # ``SHAPES`` is already in board convention (y grows downward, offsets
+        # from the box's top-left corner). This used to negate y here as well,
+        # which quietly mirrored every piece relative to the engine: the search
+        # then scored placements the engine could never reach.
+        cells = tuple(SHAPES[kind][rot])
         dxs = tuple(sorted({ox for ox, _ in cells}))
         bottoms = tuple(max(oy for ox, oy in cells if ox == dx) for dx in dxs)
         tops = tuple(min(oy for ox, oy in cells if ox == dx) for dx in dxs)
@@ -116,8 +120,8 @@ def landing_y(heights, kind, rot, x, rows):
     rather than cells is exact, because a piece only ever descends onto the top of
     each column it covers.
     """
-    _cells, dxs, bottoms, _tops, width = _ROT[kind][rot]
-    if x < 0 or x + width > len(heights):
+    _cells, dxs, bottoms, _tops, _width = _ROT[kind][rot]
+    if x + dxs[0] < 0 or x + dxs[-1] >= len(heights):
         return None
     y = rows - 1 - heights[x + dxs[0]] - bottoms[0]
     for i in range(1, len(dxs)):
@@ -130,11 +134,17 @@ def landing_y(heights, kind, rot, x, rows):
 
 
 def placements(masks, heights, kind, rows, cols):
-    """Every legal ``(rotation, x, landing_y)`` for ``kind`` on this board."""
+    """Every legal ``(rotation, x, landing_y)`` for ``kind`` on this board.
+
+    ``x`` is an anchor column and may be negative: a rotation's cells do not have
+    to start at offset 0 in the SRS box convention, so the vertical I (offset 2 of
+    its 4x4 box) must be allowed an anchor of -2 to sit in column 0. Enumerating
+    box-aligned anchors instead silently forbade the well a tetris is built in.
+    """
     out = []
     for rot in range(4):
-        width = _ROT[kind][rot][4]
-        for x in range(cols - width + 1):
+        dxs = _ROT[kind][rot][1]
+        for x in range(-dxs[0], cols - dxs[-1]):
             y = landing_y(heights, kind, rot, x, rows)
             if y is not None:
                 out.append((rot, x, y))
@@ -364,6 +374,27 @@ TETRIS_SEARCH_WEIGHTS = {
     'well_depth': 0.0,
     'well_column': None,
     'skip_well_bumpiness': False,
+
+    # Versus terms, off by default so the solo measurements above keep their
+    # meaning; VERSUS_SEARCH_WEIGHTS turns them on.
+    #
+    # `covered` is Cold Clear's dig-priority term: per column, how many blocks sit
+    # on top of each hole, capped per hole and squared. A plain hole count cannot
+    # tell a reachable hole from one buried under six blocks, and on a garbage
+    # board that difference is the whole game.
+    'covered': 0.0,
+    'covered_sq': 0.0,
+    'covered_cap': 6,
+    # Incoming garbage makes height lethal rather than merely bad. This is scored
+    # per board, and `search_move` additionally refuses moves that cannot survive
+    # the queue at all.
+    'incoming_danger': 0.0,
+    # Gaps only a vertical I can fill. Off here so the solo measurements keep
+    # their meaning; VERSUS_SEARCH_WEIGHTS turns it on.
+    'i_dependency': 0.0,
+    'i_dependency_sq': 0.0,
+    'i_dependency_rows': 0.0,
+    'dep_suppress': 0.0,
 }
 
 # Cold Clear's published defaults as a preset, for anyone re-testing the claim
@@ -405,7 +436,31 @@ SEARCH_WEIGHT_PRESETS = {
     'tetris': TETRIS_SEARCH_WEIGHTS,
     'default': DEFAULT_SEARCH_WEIGHTS,
     'cold_clear': COLD_CLEAR_WEIGHTS,
+    'versus': None,          # filled in below, once VERSUS_SEARCH_WEIGHTS exists
 }
+
+# Versus play. Same tetris-first core, plus the two things a garbage board needs:
+# digging is priced by how buried each hole is, and height is priced by what is
+# about to land on it. The well terms are left alone because the gapless readiness
+# measure already declines to chase tetrises on a holed board -- under garbage the
+# policy downstacks, which is the correct behaviour rather than a compromise.
+VERSUS_SEARCH_WEIGHTS = dict(
+    TETRIS_SEARCH_WEIGHTS,
+    covered=-17.0,           # Cold Clear's covered_cells weight
+    covered_sq=-1.0,
+    incoming_danger=-70.0,
+    # The doom loop: two unreachable-at-once holes and no I pieces left to pay
+    # them. See the measurement table in the README's doom-loop section.
+    i_dependency=-120.0,
+    i_dependency_sq=-90.0,
+    i_dependency_rows=-6.0,
+    # Above this stack height a board that owes an I may only consider moves that
+    # pay the debt down (see the gate in search_move). Below it, building still
+    # wins, which is what keeps this from becoming a well-hoarding term.
+    dep_gate_height=8,
+    dep_suppress=1.0,
+)
+SEARCH_WEIGHT_PRESETS['versus'] = VERSUS_SEARCH_WEIGHTS
 
 
 def resolve_search_weights(weights):
@@ -441,11 +496,90 @@ def well_of(masks, heights, cols, rows, w):
     return 0, -1
 
 
-def evaluate(masks, heights, kind, hold, w, rows):
+def covered_cells(masks, heights, cap=6):
+    """``(total, total_sq)`` blocks sitting on top of each hole -- Cold Clear's term.
+
+    A hole under six blocks can only be reached by clearing the six rows above it;
+    a hole under one is fixed by the next piece. A plain hole count cannot tell
+    those apart, and on a garbage board that difference is the whole game: it is
+    what makes digging beat stacking on top of the mess.
+    """
+    total = 0
+    total_sq = 0
+    for m, h in zip(masks, heights):
+        holes = (~m) & ((1 << h) - 1)
+        while holes:
+            low = holes & -holes
+            cover = (m >> low.bit_length()).bit_count()
+            if cover > cap:
+                cover = cap
+            total += cover
+            total_sq += cover * cover
+            holes ^= low
+    return total, total_sq
+
+
+def i_dependencies(masks, heights):
+    """``(columns, rows)`` of gaps only a vertical I can fill -- Blockfish's term.
+
+    From the dedicated downstacking engine Blockfish
+    (``blockfish-engine/src/ai/eval.rs``, whose entire board cost is
+    ``5 * rows + 10 * piece_estimate + 10 * i_dependencies``): a column counts when
+    it holds **at least three consecutive empty rows that are one cell wide** --
+    both neighbours filled on each of those rows. Nothing but a vertical I is one
+    cell wide, and pieces only descend from above, so such a gap can be neither
+    filled nor reached sideways. That is a hole the board is *waiting on a
+    specific piece* to fix, which is a different problem from a hole.
+
+    ``columns`` is how many columns carry one, which is Blockfish's count.
+    ``rows`` is a cheap depth proxy: the number of rows that begin a run of three
+    or more, so a four-deep gap counts twice a three-deep one. Both come out of
+    the bitmasks -- about five integer operations per column, no pixel walking,
+    because this runs at every search node.
+
+    Blockfish prices one dependency at twice a row of height. The weights here go
+    higher, and the second one higher again, because the failure being guarded
+    against is not one unreachable hole but two at once: the board then needs two
+    I pieces while the bag supplies one every seven, and the bot stacks in the
+    middle waiting for pieces that are not coming.
+    """
+    cols = len(masks)
+    if cols < 2:
+        return 0, 0
+    columns = 0
+    rows = 0
+    for x in range(cols):
+        height = heights[x]
+        if height <= 0:
+            continue
+        gap = (~masks[x]) & ((1 << height) - 1)     # empty cells below the top
+        # The board edge is as solid as a filled column, so both edge columns are
+        # scanned too. An earlier version looped over range(1, cols - 1) and so
+        # missed the single most common place for one of these to appear: a
+        # covered one-wide shaft dug at the wall, which nothing but an I can fill.
+        left = masks[x - 1] if x > 0 else ~0
+        right = masks[x + 1] if x < cols - 1 else ~0
+        one_wide = gap & left & right
+        if not one_wide:
+            continue
+        # A row begins a run of >= 3 when it and the two rows above it are all
+        # one-wide gaps; the higher rows of the board are the higher bits.
+        deep = one_wide & (one_wide >> 1) & (one_wide >> 2)
+        if deep:
+            columns += 1
+            rows += deep.bit_count()
+    return columns, rows
+
+
+def evaluate(masks, heights, kind, hold, w, rows, incoming=0):
     """Static value of a board, plus what the piece situation is worth.
 
     Every term is skipped when its weight is zero, which keeps the common case
     (the shipping weight set) to a handful of integer operations per node.
+
+    ``incoming`` is the garbage queued against this board. It is zero in solo play
+    and in every measurement in the README; versus turns on ``incoming_danger`` so
+    that height is priced by what is about to land on it rather than on its own.
     """
     cols = len(masks)
     top = max(heights)
@@ -459,6 +593,34 @@ def evaluate(masks, heights, kind, hold, w, rows):
             holes += c
             holes_sq += c * c
         score += w['holes'] * holes + w['holes_sq'] * holes_sq
+
+    if w['covered'] or w['covered_sq']:
+        cover, cover_sq = covered_cells(masks, heights, w['covered_cap'])
+        score += w['covered'] * cover + w['covered_sq'] * cover_sq
+
+    deps = 0
+    dep_rows = 0
+    if (w['i_dependency'] or w['i_dependency_sq'] or w['i_dependency_rows']
+            or w['dep_suppress']):
+        deps, dep_rows = i_dependencies(masks, heights)
+        if deps:
+            # Linear plus squared on purpose: the first dependency is expensive,
+            # the second is what actually loses the game, and a linear term barely
+            # separates "one hole I owe an I" from "two, and the bag gives one I
+            # per seven pieces".
+            score += (w['i_dependency'] * deps
+                      + w['i_dependency_sq'] * deps * deps
+                      + w['i_dependency_rows'] * dep_rows)
+
+    # A board that owes an I must not also be building a well and hoarding I
+    # pieces to fill it. That is the doom loop in one sentence: the evaluator pays
+    # for a four-deep well and for an I in hand, so the bot keeps stacking in the
+    # middle waiting for I pieces that are already spoken for, while the debt it
+    # cannot pay grows underneath. While a dependency is open, the well and
+    # I-hoarding terms stand down.
+    keep = 1.0
+    if deps and w['dep_suppress']:
+        keep = max(0.0, 1.0 - w['dep_suppress'])
 
     if w['aggregate_height']:
         score += w['aggregate_height'] * sum(heights)
@@ -485,9 +647,9 @@ def evaluate(masks, heights, kind, hold, w, rows):
         score += w['top_quarter'] * (top - w['top_quarter_at'])
 
     if depth:
-        score += w['ready'] * depth
+        score += w['ready'] * depth * keep
         if depth >= w['max_well_depth']:
-            score += w['ready_full']
+            score += w['ready_full'] * keep
         score += w['well_depth'] * depth
         bias = w['well_column']
         if bias:
@@ -504,7 +666,7 @@ def evaluate(masks, heights, kind, hold, w, rows):
         # Outside the `depth` branch on purpose: the flat part is what makes the
         # *first* I worth saving, which matters most on a board whose well is not
         # deep yet.
-        score += w['i_hold_base'] + w['i_hold'] * (depth / 4.0)
+        score += (w['i_hold_base'] + w['i_hold'] * (depth / 4.0)) * keep
 
     if w['dip']:
         # Charged on every dip *except* the well in use. Without the exemption the
@@ -518,6 +680,10 @@ def evaluate(masks, heights, kind, hold, w, rows):
     if soft is not None and top > soft:
         over = top - soft
         score -= w['height_k'] * over * over
+    if incoming and w['incoming_danger']:
+        over = top + incoming - (rows - 1)
+        if over > 0:
+            score += w['incoming_danger'] * over * over
     return score
 
 
@@ -537,9 +703,10 @@ class _Node:
     """
 
     __slots__ = ('masks', 'heights', 'kind', 'hold', 'qpos', 'path', 'leaf',
-                 'value', 'first')
+                 'value', 'first', 'cleared')
 
-    def __init__(self, masks, heights, kind, hold, qpos, path, leaf, first):
+    def __init__(self, masks, heights, kind, hold, qpos, path, leaf, first,
+                 cleared=0):
         self.masks = masks
         self.heights = heights
         self.kind = kind
@@ -549,6 +716,7 @@ class _Node:
         self.leaf = leaf
         self.value = path + leaf
         self.first = first
+        self.cleared = cleared
 
 
 def _swapped(node, use_hold, queue):
@@ -562,7 +730,8 @@ def _swapped(node, use_hold, queue):
     return None, node.hold, node.qpos
 
 
-def _step(node, use_hold, rot, x, y, queue, rows, cols, w, buffer_rows):
+def _step(node, use_hold, rot, x, y, queue, rows, cols, w, buffer_rows,
+          incoming=0):
     """Advance a node by one move. Returns the child, or None past the queue."""
     placed, new_hold, qpos = _swapped(node, use_hold, queue)
     if placed is None:
@@ -584,28 +753,31 @@ def _step(node, use_hold, rot, x, y, queue, rows, cols, w, buffer_rows):
     if w['wasted_i'] and placed == 'I' and not cleared:
         if well_of(node.masks, node.heights, cols, rows, w)[0] >= 4:
             path += w['wasted_i']
-    leaf = evaluate(masks, heights, nxt, new_hold, w, rows)
-    return _Node(masks, heights, nxt, new_hold, qpos, path, leaf, node.first)
+    leaf = evaluate(masks, heights, nxt, new_hold, w, rows, incoming)
+    return _Node(masks, heights, nxt, new_hold, qpos, path, leaf, node.first,
+                 cleared)
 
 
-def _children(node, queue, rows, cols, w, buffer_rows):
+def _children(node, queue, rows, cols, w, buffer_rows, incoming=0):
     """Every legal child of ``node`` as ``(use_hold, rot, x, child)``."""
     out = []
     for rot, x, y in placements(node.masks, node.heights, node.kind, rows, cols):
-        child = _step(node, False, rot, x, y, queue, rows, cols, w, buffer_rows)
+        child = _step(node, False, rot, x, y, queue, rows, cols, w, buffer_rows,
+                      incoming)
         if child is not None:
             out.append((False, rot, x, child))
     if node.hold is not None or node.qpos < len(queue):
         alt = node.hold if node.hold is not None else queue[node.qpos]
         for rot, x, y in placements(node.masks, node.heights, alt, rows, cols):
-            child = _step(node, True, rot, x, y, queue, rows, cols, w, buffer_rows)
+            child = _step(node, True, rot, x, y, queue, rows, cols, w,
+                          buffer_rows, incoming)
             if child is not None:
                 out.append((True, rot, x, child))
     return out
 
 
 def search_move(game, actions=None, depth=3, beam=8, weights=None,
-                allow_hold=True):
+                allow_hold=True, incoming=0):
     """Choose a move by beam search. Returns ``(use_hold, rotation, x)`` or None.
 
     ``actions`` are the caller's legal moves (three-tuples or bare ``(rotation,
@@ -615,6 +787,12 @@ def search_move(game, actions=None, depth=3, beam=8, weights=None,
 
     ``depth`` is how many pieces to look ahead -- 1 is a plain greedy choice over
     the same evaluation -- and ``beam`` how many boards survive each ply.
+
+    ``incoming`` is the garbage queued against this board. When it is non-zero the
+    search also applies Cold Clear's survival gate: among the legal moves it takes
+    the best one that can absorb what is about to land, and only when *nothing*
+    survives does it fall back to the best move outright, which is the "take the
+    max-damage move" half of their ``pick_move``.
     """
     from .heuristic import hold_options
 
@@ -652,7 +830,7 @@ def search_move(game, actions=None, depth=3, beam=8, weights=None,
         if y is None:
             continue                      # the fast model disagrees: skip safely
         child = _step(root, use_hold, rot, x, y, queue, rows, cols, w,
-                      game.buffer_rows)
+                      game.buffer_rows, incoming)
         if child is None:
             continue
         child.first = (use_hold, rot, x)
@@ -661,6 +839,51 @@ def search_move(game, actions=None, depth=3, beam=8, weights=None,
     if not scored:
         move = actions[0]
         return (False, move[0], move[1]) if len(move) == 2 else tuple(move)
+
+    if incoming > 0 and w['incoming_danger']:
+        def survives(child):
+            # The move's own clear cancels part of the queue, so what has to fit
+            # is the board after it, plus whatever is still coming.
+            net = incoming - child.cleared
+            if net < 0:
+                net = 0
+            return (max(child.heights) if child.heights else 0) + net <= rows - 1
+
+        safe = [item for item in scored if survives(item[2])]
+        if safe:
+            scored = safe
+
+    # The dependency gate. A soft price for an I-dependency is not enough, and the
+    # measurement says so plainly: with `i_dependency` at -120 and its square at
+    # -90, ten games of garbage pressure came out *byte-identical* to the same ten
+    # with the term switched off. The reason is that a dependency is a symptom of a
+    # tall board, and at height 14 the quadratic height pressure is already ~430
+    # and at 18 it is ~1200, so a few hundred points of dependency penalty is
+    # inside the noise of the choice it was supposed to change.
+    #
+    # So the dependency is treated like incoming garbage: as a constraint on the
+    # root move rather than as a line in the score. If the board owes an I and the
+    # stack is high, the search may only consider moves that pay it down (or at
+    # least do not make it worse); if no such move exists it falls back to its
+    # normal ranking, which is the "take the best move anyway" half of Cold Clear's
+    # pick_move.
+    gate_height = w.get('dep_gate_height')
+    if gate_height and scored:
+        deps_now, _rows = i_dependencies(masks, heights)
+        if deps_now and max(heights) >= gate_height:
+            graded = []
+            for item in scored:
+                child = item[2]
+                deps_after = i_dependencies(child.masks, child.heights)[0]
+                graded.append((deps_after, item))
+            better = [item for deps_after, item in graded if deps_after < deps_now]
+            if better:
+                scored = better
+            else:
+                no_worse = [item for deps_after, item in graded
+                            if deps_after <= deps_now]
+                if no_worse:
+                    scored = no_worse
 
     scored.sort(key=lambda item: (-item[0], item[1]))
     beam_nodes = [child for _v, _m, child in scored[:beam]]

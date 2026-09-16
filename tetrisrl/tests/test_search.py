@@ -354,6 +354,117 @@ def test_weight_presets():
         check('an unknown preset raises', True)
 
 
+def dependency_board(gaps, heights=8, kind='J'):
+    """A board filled to ``heights`` with the given cells emptied afterwards.
+
+    ``gaps`` is a sequence of ``(column, [rows])``; a gap under a filled top is
+    what makes an I-dependency, as opposed to an empty column.
+    """
+    game = Game(seed=0)
+    for x in range(game.cols):
+        for y in range(game.rows - heights, game.rows):
+            game.board.grid[y][x] = 'X'
+    for x, rows in gaps:
+        for y in rows:
+            game.board.grid[y][x] = None
+    game.current = Piece(kind, *spawn_anchor(kind))
+    return game
+
+
+def deps_of(game):
+    masks = S.board_masks(game)
+    return S.i_dependencies(masks, S.heights_of(masks))
+
+
+def test_i_dependency_detection():
+    """Blockfish's definition: one cell wide, three rows deep, walls both sides."""
+    deep = [(5, [18, 19, 20, 21])]
+    check('a flat board owes nothing', deps_of(dependency_board(())) == (0, 0))
+    check('a 1-wide 4-deep gap is a dependency',
+          deps_of(dependency_board(deep))[0] == 1)
+    check('...and its depth is recorded', deps_of(dependency_board(deep))[1] == 2)
+    check('a 1-wide 3-deep gap is a dependency',
+          deps_of(dependency_board([(5, [19, 20, 21])]))[0] == 1)
+    check('a 1-wide 2-deep gap is not (nothing needs an I for two rows)',
+          deps_of(dependency_board([(5, [20, 21])])) == (0, 0))
+    check('a 2-wide gap is not (an O or an L can fill it)',
+          deps_of(dependency_board([(5, [18, 19, 20, 21]),
+                                    (6, [18, 19, 20, 21])])) == (0, 0))
+    check('an empty column is not (it is a well, not a hole)',
+          deps_of(dependency_board([(5, [18, 19, 20, 21]),
+                                    (5, [14, 15, 16, 17])]))[0] == 0)
+    two = [(3, [18, 19, 20, 21]), (6, [18, 19, 20, 21])]
+    check('two columns with gaps report two', deps_of(dependency_board(two))[0] == 2)
+
+
+def test_i_dependency_costs_more_the_second_time():
+    """The doom loop is two dependencies, so the term cannot be linear.
+
+    Asserted on the term's own contribution rather than on a whole board score:
+    measured on the board, the second dependency looks only ~15% worse than the
+    first, because both create four hole cells and the *hole* term (-170 each)
+    dominates the difference. The shape of the dependency term is what this test
+    is about.
+    """
+    w = S.VERSUS_SEARCH_WEIGHTS
+
+    def cost(n):
+        return -(w['i_dependency'] * n + w['i_dependency_sq'] * n * n)
+
+    first = cost(1)
+    second = cost(2) - cost(1)
+    third = cost(3) - cost(2)
+    check('a dependency costs something', first > 0, f'{first:.0f}')
+    check('the second costs clearly more than the first',
+          second > first * 1.5, f'first {first:.0f}, second {second:.0f}')
+    check('and the third more again', third > second,
+          f'second {second:.0f}, third {third:.0f}')
+    check('a board with two dependencies scores worse than one with one',
+          cost(2) > cost(1) + first, f'{cost(2):.0f}')
+
+
+def test_open_dependency_suppresses_the_well():
+    """While an I is owed, the well and I-hoarding terms stand down.
+
+    This is the doom loop's engine: the evaluator pays for a deep well and for an
+    I in hand, so the bot keeps building and banking Is while the hole it cannot
+    fill grows underneath.
+    """
+    game = dependency_board([(5, [18, 19, 20, 21])], kind='I')
+    masks = S.board_masks(game)
+    heights = S.heights_of(masks)
+    on = dict(S.VERSUS_SEARCH_WEIGHTS)                 # dep_suppress = 1.0
+    off = dict(S.VERSUS_SEARCH_WEIGHTS, dep_suppress=0.0)
+    gap = (S.evaluate(masks, heights, 'I', None, on, game.rows)
+           - S.evaluate(masks, heights, 'I', None, off, game.rows))
+    check('an open dependency changes the score', gap != 0, f'{gap:.0f}')
+    check('and the shipped setting suppresses, it does not add', on['dep_suppress'] == 1.0)
+
+
+def test_dependency_gate_prefers_paying_the_debt():
+    """With a debt and a high stack, the move must not make the debt worse."""
+    game = dependency_board([(5, [18, 19, 20, 21])], heights=10, kind='I')
+    masks = S.board_masks(game)
+    heights = S.heights_of(masks)
+    before = S.i_dependencies(masks, heights)[0]
+    move = S.search_move(game, None, depth=2, beam=6,
+                         weights=S.VERSUS_SEARCH_WEIGHTS)
+    check('the gate returns a move', move is not None, move)
+    gamt = dependency_board([(5, [18, 19, 20, 21])], heights=10, kind='I')
+    actions = valid_actions(gamt.board, gamt.current)
+    # A hold move plays the swapped-in piece, so its (rotation, x) belongs to that
+    # piece's action list, not this one's.
+    is_hold = len(move) == 3 and bool(move[0])
+    legal = is_hold or tuple(move[-2:]) in {tuple(a) for a in actions}
+    check('and it is a legal placement', legal, f'{move} in {len(actions)}')
+    # Apply it and confirm the debt did not grow.
+    gamt2 = dependency_board([(5, [18, 19, 20, 21])], heights=10, kind='I')
+    apply_move(gamt2, move)
+    after = deps_of(gamt2)[0]
+    check('the debt does not grow under the gate', after <= before,
+          f'{before} -> {after}')
+
+
 def main():
     for fn in (test_board_masks_match_grid,
                test_placements_match_valid_actions,
@@ -368,6 +479,10 @@ def main():
                test_search_avoids_topping_out,
                test_search_alone_is_not_enough,
                test_policy_plays_a_game,
+               test_i_dependency_detection,
+               test_i_dependency_costs_more_the_second_time,
+               test_open_dependency_suppresses_the_well,
+               test_dependency_gate_prefers_paying_the_debt,
                test_weight_presets):
         fn()
     print()

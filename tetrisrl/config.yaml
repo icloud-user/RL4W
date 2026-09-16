@@ -149,3 +149,73 @@ training:
   # teacher_rounds rounds (0 disables).
   teacher_fraction: 0.0
   teacher_rounds: 0
+
+# -----------------------------------------------
+# INPUT SETTINGS (human play and the versus mode)
+# -----------------------------------------------
+# Everything here is rebindable in the menu's Settings screen, which writes
+# `settings.yaml` next to this file and is merged *over* this section -- so a
+# player's own bindings survive a config edit or a git pull, and this commented
+# file never has to be rewritten by the game. Delete settings.yaml to come back
+# to exactly what is written here.
+#
+# Every action takes up to TWO keys: any key in the list does the job.
+#
+# Key names are what pygame prints: `left`, `right`, `up`, `down`, `space`,
+# `escape`, `return`, `left ctrl`, `right shift`, `page up`, `f1`, `a` ... Short
+# forms people actually type are accepted too (`esc`, `lctrl`, `lshift`, ` `,
+# and the arrow aliases). An unparsable name is reported at startup and that one
+# binding falls back to its default rather than stopping the game.
+#
+# The defaults are TETR.IO's: arrows move, Z/X and Ctrl/Up rotate, A spins 180,
+# C/Shift holds. Timing follows the same convention as the game:
+input:
+  bindings:
+    move_left:  [left]
+    move_right: [right]
+    soft_drop:  [down]
+    hard_drop:  [space]
+    rotate_cw:  [up, x]
+    rotate_ccw: [z, left ctrl]
+    rotate_180: [a]
+    hold:       [c, left shift]
+    pause:      [p]
+    restart:    [r]
+    new_seed:   [n]
+    quit:       [escape]
+
+  # Timing, in the units TETR.IO players expect.
+  #
+  #   das_ms          delay before horizontal auto-repeat starts
+  #   arr_ms          auto-repeat rate AFTER that delay. 0 = instant: the piece
+  #                   slides all the way to the wall on the frame DAS expires.
+  #   sdf             soft-drop factor: a multiple of the current gravity. A big
+  #                   number is genuinely fast -- 200 moves about four rows per
+  #                   frame at 60fps, not the one row a frame used to cap it at.
+  #                   0 (or leaving the value empty) = unlimited, i.e. the piece
+  #                   drops to its landing row immediately WITHOUT locking, so it
+  #                   can still be moved or spun during the lock delay.
+  #   soft_drop_instant
+  #                   the same unlimited drop as a plain yes/no, which is what the
+  #                   settings screen sets with I on the SDF row. Use this rather
+  #                   than sdf: 0 if you want it and also want a factor remembered:
+  #                   turning it off restores the last numeric sdf.
+  #   lock_delay_ms   how long a resting piece waits before locking
+  #   lock_reset_limit  how many move/rotate resets that timer allows
+  #   dcd_ms          DAS Cut Delay: horizontal auto-repeat is frozen for this
+  #                   long after a successful rotation and after a new piece
+  #                   appears. The direction stays held and DAS does not restart
+  #                   -- the charge is paused, not reset -- and a *fresh press*
+  #                   still moves a cell during the window, so this cuts the
+  #                   slide, not the input. 0 (the default) disables it. Minimum
+  #                   0, no maximum: it is a delay and any value is legal.
+  #
+  # These are the TETR.IO defaults people expect (133ms DAS, instant ARR) plus
+  # the 500ms lock delay the guideline specifies.
+  das_ms: 133
+  arr_ms: 0
+  sdf: 41
+  soft_drop_instant: false
+  lock_delay_ms: 500
+  lock_reset_limit: 15
+  dcd_ms: 0

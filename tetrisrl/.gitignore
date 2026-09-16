@@ -1,2 +1,7 @@
 __pycache__/
 *.pyc
+# Recorded sessions (python -m tetrisrl play --record): diagnostics, not source.
+sessions/
+# The player's own bindings and timings, written by the settings screen. Personal,
+# and it overrides config.yaml, so committing it would fight whoever clones next.
+settings.yaml

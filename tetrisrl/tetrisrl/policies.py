@@ -29,6 +29,39 @@ TETRIS_AWARE = 'heuristic_tetris'
 # heuristic. Opt-in because it costs roughly 15x the plain heuristic per move.
 SEARCH = 'search'
 SEARCH_TETRIS = 'search_tetris'
+#: The versus opponent: same search, garbage-aware weights, plus a handicap.
+SEARCH_VERSUS = 'search_versus'
+
+#: Difficulty presets for the versus opponent.
+#:
+#: The knobs are the ones published Tetris bots actually expose -- Zetris ships
+#: Speed, Previews and Intelligence, MisaMino ships a "smartness" level -- plus a
+#: mistake rate modelled on Stockfish's Skill Level, which plays a weaker move
+#: with a probability instead of weakening every move.
+#:
+#: ``pps`` is calibrated against published TETRA LEAGUE attack rates
+#: (neozt/tetra-league-stats, 39,477 players): D+ ~6 APM at 0.61 PPS, C ~9/0.74,
+#: B ~15/0.93, A ~21/1.13, S ~33/1.40, X ~91/2.49. A tetris every ~7 pieces is
+#: about 4 lines per 7 pieces, so a preset's ceiling is roughly
+#: ``pps * 60 * 4 / 7`` APM; the bot has no T-spins and no opener, so treat these
+#: as upper bounds rather than promises.
+#:
+#: ``mistake`` is the chance of playing the one-ply heuristic's move instead of the
+#: search's. That is a real downgrade rather than noise: the heuristic is the
+#: policy this project measured as unable to build tetrises at all.
+HANDICAP_PRESETS = {
+    'beginner': {'depth': 1, 'beam': 1, 'mistake': 0.40, 'pps': 0.7,
+                 'reaction': 0.40, 'label': 'beginner (~C rank pace)'},
+    'intermediate': {'depth': 1, 'beam': 6, 'mistake': 0.25, 'pps': 0.9,
+                     'reaction': 0.30, 'label': 'intermediate (~B rank pace)'},
+    'advanced': {'depth': 2, 'beam': 6, 'mistake': 0.12, 'pps': 1.1,
+                 'reaction': 0.20, 'label': 'advanced (~A rank pace)'},
+    'expert': {'depth': 3, 'beam': 6, 'mistake': 0.04, 'pps': 1.4,
+               'reaction': 0.12, 'label': 'expert (~S rank pace)'},
+    'max': {'depth': 3, 'beam': 6, 'mistake': 0.0, 'pps': 6.0,
+            'reaction': 0.0, 'label': 'max (no handicap)'},
+}
+DEFAULT_DIFFICULTY = 'advanced'
 
 # Named checkpoints. ``best`` is the best-measuring checkpoint from the main
 # training run; the ``*_finetuned`` entries come from tools/finetune.py, which
@@ -52,6 +85,48 @@ def _checkpoint_path(name):
     if name in CHECKPOINT_NAMES:
         return os.path.join(CHECKPOINT_DIR, CHECKPOINT_NAMES[name])
     return name
+
+
+def make_versus_policy(difficulty=DEFAULT_DIFFICULTY, weights='versus',
+                       incoming_fn=None, seed=0, name=None):
+    """The bot you play against: garbage-aware search, handicapped.
+
+    ``incoming_fn`` is called for the garbage queued against this board, which the
+    search needs to price height by what is about to land on it and to apply its
+    survival gate. Pass the battle's ``incoming`` bound to this side.
+
+    The returned policy carries ``pps`` and ``reaction`` so a caller driving a real
+    match can pace it: pieces per second, and a pause after garbage lands before
+    the next decision. Nothing in the policy itself sleeps -- timing belongs to the
+    loop that owns the clock, exactly as in the rest of this project.
+    """
+    import random as _random
+
+    from . import search as search_mod
+    from .heuristic import heuristic_choice
+
+    preset = HANDICAP_PRESETS[difficulty]
+    rng = _random.Random(seed)
+
+    def policy(game, actions):
+        incoming = incoming_fn() if incoming_fn else 0
+        if preset['mistake'] and rng.random() < preset['mistake']:
+            return heuristic_choice(game, actions) or actions[0]
+        move = search_mod.search_move(
+            game, None, depth=preset['depth'], beam=preset['beam'],
+            weights=weights, incoming=incoming)
+        if move is None:
+            raise RuntimeError('no legal placement')
+        return move
+
+    policy.policy_name = name or f'{SEARCH_VERSUS}:{difficulty}'
+    policy.difficulty = difficulty
+    policy.pps = preset['pps']
+    policy.reaction = preset['reaction']
+    policy.mistake = preset['mistake']
+    policy.depth = preset['depth']
+    policy.beam = preset['beam']
+    return policy
 
 
 def list_policies(checkpoint_dir=None):
