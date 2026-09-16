@@ -2,10 +2,9 @@
 
 > ## The majority of the contents of this project was generated with ARTIFICIAL INTELLIGENCE.
 >
-> Nearly every line of code here — the engine, the features, the agent, the search,
-> the versus rules, the renderer, the tools, the tests and most of this README —
-> was written by AI (DeepSeek Harness / Claude-class models working from the
-> author's instructions and review). The human author set the goals, chose the
+> Nearly every line of code here the engine, the features, the agent, the search,
+> the versus rules, the renderer, the tools, the tests and most of this README
+> was written by AI. The human author set the goals, chose the
 > direction, ran the games, reported what felt wrong, and verified behaviour in
 > play; the code and prose were machine-generated and then measured.
 >
